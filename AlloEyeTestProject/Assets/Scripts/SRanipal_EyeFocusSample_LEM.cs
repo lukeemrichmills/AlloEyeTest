@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections;
+using System.Text;
+using System.IO;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -7,13 +9,24 @@ using ViveSR.anipal.Eye;
 
 namespace EyeTracking_lEC
 {
-    public class FocusChange : MonoBehaviour
+    ///new type for list; types of data for data collection through eye tracking: 
+    ///name of object being focused on or off, time stamp, and direction of focus (i.e. on or off)
+    public class FocusChange 
     {
-        //objectID
-        //timestamp
-        //direction
+        public string objectID;
+        public float time;
+        public int direction;
+
+        public FocusChange(string newName, float newTime, int newDir)
+        {
+            objectID = newName;
+            time = newTime;
+            direction = newDir;
+        }        
     }
 
+    ///main class used to detect eye focus on objects through raycasting. 
+    ///This class adapted from SRanipal EyeFocusSample script
     public class SRanipal_EyeFocusSample_LEM : MonoBehaviour
     {
         private FocusInfo FocusInfo;
@@ -54,7 +67,7 @@ namespace EyeTracking_lEC
             foreach (GazeIndex index in GazePriority)
             {
                 Ray GazeRay;
-                //int dart_board_layer_id = LayerMask.NameToLayer("NoReflection");
+                
                 int objectLayer = 8; //object layer 8 is set to array objects
                 bool eye_focus;
                 if (eye_callback_registered)
@@ -62,32 +75,43 @@ namespace EyeTracking_lEC
                 else
                     eye_focus = SRanipal_Eye.Focus(index, out GazeRay, out FocusInfo, 0, MaxDistance, (1 << objectLayer));
 
-                if (eye_focus == false) //CHANGE STUFF HERE
-                {
-                    if (previousFocus != null)
-                    {
-                        RegisterFocus(previousFocus.name, Time.time, focusOff);
-                        previousFocus = null;
-                    }
-                    break;                    
-                }
-                else
+                //code that saves focus data, change this for collecting data or coding interactions with objects
+                if (eye_focus) 
                 {
                     if (previousFocus != null && FocusInfo.collider.gameObject != previousFocus)
                     {
                         RegisterFocus(previousFocus.name, Time.time, focusOff);
+                        Debug.Log("Focus off " + previousFocus.name + " at time: " + Time.time);
                         RegisterFocus(FocusInfo.collider.gameObject.name, Time.time, focusOn);
+                        Debug.Log("Focus on " + FocusInfo.collider.gameObject.name + " at time: " + Time.time);
                         previousFocus = FocusInfo.collider.gameObject;
                     }
                     else if (previousFocus == null && FocusInfo.collider.gameObject != previousFocus) //'previousFocus == null' not strictly necessary
                     {
                         RegisterFocus(FocusInfo.collider.gameObject.name, Time.time, focusOn);
+                        Debug.Log("Focus on " + FocusInfo.collider.gameObject.name + " at time: " + Time.time);
                         previousFocus = FocusInfo.collider.gameObject;
+                    }
+                    break;
+                }
+                else
+                {
+                    if (previousFocus != null)
+                    {
+                        RegisterFocus(previousFocus.name, Time.time, focusOff);
+                        Debug.Log("Focus off " + previousFocus.name + " at time: " + Time.time);
+                        previousFocus = null;
                     }
                     break;
                 }                
             }
         }
+        //called when user stops playmode
+        private void OnApplicationQuit()
+        {
+            SaveToCSV(focusDataCollection); //saves list of eye tracking data to csv file
+        }
+
         private void Release()
         {
             if (eye_callback_registered == true)
@@ -96,15 +120,40 @@ namespace EyeTracking_lEC
                 eye_callback_registered = false;
             }
         }
+
         private static void EyeCallback(ref EyeData eye_data)
         {
             eyeData = eye_data;
         }
 
+        //function to record eye focus data to list
         private void RegisterFocus(string objectID, float timestamp , int dir)
         {
-        //    list.append(newentry);
+            focusDataCollection.Add(new FocusChange(objectID, timestamp, dir));
         }
 
+        //function to save data collection list to CSV file
+        void SaveToCSV(List<FocusChange> list)
+        {
+            string filePath = Application.dataPath + "/CSV/" + "Data_Output.csv";
+
+            StreamWriter writer = new StreamWriter(filePath);
+            writer.WriteLine("Object,Time,Focus On/Off");
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                writer.WriteLine(list[i].objectID + "," + list[i].time + "," + list[i].direction);
+            }
+            writer.Flush();
+            //writer.Close();
+            Debug.Log("CSV file written");
+        }
+
+//        private string getPath()
+//        {
+//#if UNITY_EDITOR
+//            return Application.dataPath + "/CSV/" + "Data_Output.csv";
+
+//        }
     }
 }
