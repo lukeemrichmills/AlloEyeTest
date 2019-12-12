@@ -37,7 +37,7 @@ namespace EyeTracking_lEC
         List<FocusChange> focusDataCollection = new List<FocusChange>();
         GameObject previousFocus = null; //this will save the object that was previously focused on (including object ID)
         int focusOn = 1;
-        int focusOff = 2;
+        int focusOff = 0;
 
         private void Start()
         {
