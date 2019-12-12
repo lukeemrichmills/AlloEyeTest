@@ -16,6 +16,7 @@ namespace EyeTracking_lEC
         public string objectID;
         public float time;
         public int direction;
+        
 
         public FocusChange(string newName, float newTime, int newDir)
         {
@@ -23,6 +24,22 @@ namespace EyeTracking_lEC
             time = newTime;
             direction = newDir;
         }        
+    }
+
+    public class FixationPoint
+    {
+        public float time;
+        public float colX;
+        public float colY;
+        public float colZ;
+
+        public FixationPoint(float newtime, float X, float Y, float Z)
+        {
+            time = newtime;
+            colX = X;
+            colY = Y;
+            colZ = Z;
+        }
     }
 
     ///main class used to detect eye focus on objects through raycasting. 
@@ -34,10 +51,12 @@ namespace EyeTracking_lEC
         private readonly GazeIndex[] GazePriority = new GazeIndex[] { GazeIndex.COMBINE, GazeIndex.LEFT, GazeIndex.RIGHT };
         private static EyeData eyeData = new EyeData();
         private bool eye_callback_registered = false;
-        List<FocusChange> focusDataCollection = new List<FocusChange>();
+        List<FocusChange> focusObjectCollection = new List<FocusChange>();
+        List<FixationPoint> fixationPointCollection = new List<FixationPoint>();
         GameObject previousFocus = null; //this will save the object that was previously focused on (including object ID)
         int focusOn = 1;
         int focusOff = 0;
+        Vector3 nullVector = new Vector3(99f, 99f, 99f); //used for collision point at 'focus off'
 
         private void Start()
         {
@@ -78,6 +97,8 @@ namespace EyeTracking_lEC
                 //code that saves focus data, change this for collecting data or coding interactions with objects
                 if (eye_focus) 
                 {
+                    RegisterFixationPoint(Time.time, FocusInfo.point);
+
                     if (previousFocus != null && FocusInfo.collider.gameObject != previousFocus)
                     {
                         RegisterFocus(previousFocus.name, Time.time, focusOff);
@@ -109,7 +130,8 @@ namespace EyeTracking_lEC
         //called when user stops playmode
         private void OnApplicationQuit()
         {
-            SaveToCSV(focusDataCollection); //saves list of eye tracking data to csv file
+            SaveToCSV(focusObjectCollection, fixationPointCollection);
+            //saves list of eye tracking data to csv file
         }
 
         private void Release()
@@ -129,22 +151,41 @@ namespace EyeTracking_lEC
         //function to record eye focus data to list
         private void RegisterFocus(string objectID, float timestamp , int dir)
         {
-            focusDataCollection.Add(new FocusChange(objectID, timestamp, dir));
+            focusObjectCollection.Add(new FocusChange(objectID, timestamp, dir));
+            
+        }
+
+        private void RegisterFixationPoint(float timestamp, Vector3 colPoint)
+        {
+            fixationPointCollection.Add(new FixationPoint(timestamp, colPoint.x, colPoint.y, colPoint.z));
         }
 
         //function to save data collection list to CSV file
-        void SaveToCSV(List<FocusChange> list)
+        void SaveToCSV(List<FocusChange> focusObjectList, List<FixationPoint> fixationPointList)
         {
-            string filePath = Application.dataPath + "/CSV/" + "Data_Output.csv";
+            string filePathObject = Application.dataPath + "/CSV/" + "Focus_Change.csv";
+            string filePathFixPoint = Application.dataPath + "/CSV/" + "Fixation_Point.csv";
 
-            StreamWriter writer = new StreamWriter(filePath);
-            writer.WriteLine("Object,Time,Focus On/Off");
-
-            for (int i = 0; i < list.Count; i++)
+            StreamWriter writer1 = new StreamWriter(filePathObject);
+            writer1.WriteLine("Object,Time,Focus On/Off");
+            for (int i = 0; i < focusObjectList.Count; i++)
             {
-                writer.WriteLine(list[i].objectID + "," + list[i].time + "," + list[i].direction);
+                writer1.WriteLine(focusObjectList[i].objectID + "," 
+                    + focusObjectList[i].time + "," 
+                    + focusObjectList[i].direction);
             }
-            writer.Flush();
+            writer1.Flush();
+
+            StreamWriter writer2 = new StreamWriter(filePathFixPoint);
+            writer2.WriteLine("Time,X,Y,Z");
+            for (int i = 0; i < fixationPointList.Count; i++)
+            {
+                writer2.WriteLine(fixationPointList[i].time + ","
+                    + fixationPointList[i].colX + ","
+                    + fixationPointList[i].colY + "," + fixationPointList[i].colZ);
+            }
+            writer2.Flush();
+
             //writer.Close();
             Debug.Log("CSV file written");
         }
