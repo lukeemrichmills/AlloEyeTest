@@ -12,6 +12,7 @@ public class FocusedObjectProperties : MonoBehaviour
     {
         Renderer = GetComponent<Renderer>(); //renderer of this object    
         objectID = gameObject.name;
+        Debug.Log(objectID+": "+transform.position.ToString("F4"));
     }
 
     // Update is called once per frame

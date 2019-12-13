@@ -11,36 +11,41 @@ namespace EyeTracking_lEC
 {
     ///new type for list; types of data for data collection through eye tracking: 
     ///name of object being focused on or off, time stamp, and direction of focus (i.e. on or off)
-    public class FocusChange 
+    public class GazeData 
     {
         public string objectID;
         public float time;
-        public int direction;
-        
-
-        public FocusChange(string newName, float newTime, int newDir)
-        {
-            objectID = newName;
-            time = newTime;
-            direction = newDir;
-        }        
-    }
-
-    public class FixationPoint
-    {
-        public float time;
+        //public int direction;
+        public float objPosX;
+        public float objPosY;
+        public float objPosZ;
+        public float objScaleX;
+        public float objScaleY;
+        public float objScaleZ;
         public float colX;
         public float colY;
         public float colZ;
 
-        public FixationPoint(float newtime, float X, float Y, float Z)
+        public GazeData(float newTime, string newName, float oPX, float oPY, float oPZ,
+                        float oSX, float oSY, float oSZ,
+                        float cX, float cY, float cZ)
         {
-            time = newtime;
-            colX = X;
-            colY = Y;
-            colZ = Z;
+            objectID = newName;
+            time = newTime;
+            //direction = newDir;
+            objPosX = oPX;
+            objPosY = oPY;
+            objPosZ = oPZ;
+            objScaleX = oSX;
+            objScaleY = oSY;
+            objScaleZ = oSZ;
+            colX = cX;
+            colY = cY;
+            colZ = cZ;
         }
     }
+
+    
 
     ///main class used to detect eye focus on objects through raycasting. 
     ///This class adapted from SRanipal EyeFocusSample script
@@ -51,11 +56,11 @@ namespace EyeTracking_lEC
         private readonly GazeIndex[] GazePriority = new GazeIndex[] { GazeIndex.COMBINE, GazeIndex.LEFT, GazeIndex.RIGHT };
         private static EyeData eyeData = new EyeData();
         private bool eye_callback_registered = false;
-        List<FocusChange> focusObjectCollection = new List<FocusChange>();
-        List<FixationPoint> fixationPointCollection = new List<FixationPoint>();
+        List<GazeData> gazeDataCollection = new List<GazeData>();
+       
         GameObject previousFocus = null; //this will save the object that was previously focused on (including object ID)
-        int focusOn = 1;
-        int focusOff = 0;
+        //int focusOn = 1;
+        //int focusOff = 0;
         Vector3 nullVector = new Vector3(99f, 99f, 99f); //used for collision point at 'focus off'
 
         private void Start()
@@ -97,40 +102,37 @@ namespace EyeTracking_lEC
                 //code that saves focus data, change this for collecting data or coding interactions with objects
                 if (eye_focus) 
                 {
-                    RegisterFixationPoint(Time.time, FocusInfo.point);
+                    RegisterGaze(Time.time, FocusInfo.collider.gameObject.name, FocusInfo.transform.position,
+                                 FocusInfo.transform.localScale, FocusInfo.point); //saves eye ray collision point
 
-                    if (previousFocus != null && FocusInfo.collider.gameObject != previousFocus)
-                    {
-                        RegisterFocus(previousFocus.name, Time.time, focusOff);
-                        Debug.Log("Focus off " + previousFocus.name + " at time: " + Time.time);
-                        RegisterFocus(FocusInfo.collider.gameObject.name, Time.time, focusOn);
-                        Debug.Log("Focus on " + FocusInfo.collider.gameObject.name + " at time: " + Time.time);
-                        previousFocus = FocusInfo.collider.gameObject;
-                    }
-                    else if (previousFocus == null && FocusInfo.collider.gameObject != previousFocus) //'previousFocus == null' not strictly necessary
-                    {
-                        RegisterFocus(FocusInfo.collider.gameObject.name, Time.time, focusOn);
-                        Debug.Log("Focus on " + FocusInfo.collider.gameObject.name + " at time: " + Time.time);
-                        previousFocus = FocusInfo.collider.gameObject;
-                    }
+                    //if (previousFocus != null && FocusInfo.collider.gameObject != previousFocus)
+                    //{
+                    //    RegisterGaze(Time.time, previousFocus.name, focusOff);
+                    //    RegisterGaze(Time.time, FocusInfo.collider.gameObject.name, FocusInfo.point, focusOn);
+                    //    previousFocus = FocusInfo.collider.gameObject;
+                    //}
+                    //else if (previousFocus == null && FocusInfo.collider.gameObject != previousFocus) //'previousFocus == null' not strictly necessary
+                    //{
+                    //    RegisterFocus(FocusInfo.collider.gameObject.name, Time.time, focusOn);
+                    //    previousFocus = FocusInfo.collider.gameObject;
+                    //}
                     break;
                 }
-                else
-                {
-                    if (previousFocus != null)
-                    {
-                        RegisterFocus(previousFocus.name, Time.time, focusOff);
-                        Debug.Log("Focus off " + previousFocus.name + " at time: " + Time.time);
-                        previousFocus = null;
-                    }
-                    break;
-                }                
+                //else
+                //{
+                //    if (previousFocus != null)
+                //    {
+                //        RegisterFocus(previousFocus.name, Time.time, focusOff);
+                //        previousFocus = null;
+                //    }
+                //    break;
+                //}                
             }
         }
         //called when user stops playmode
         private void OnApplicationQuit()
         {
-            SaveToCSV(focusObjectCollection, fixationPointCollection);
+            SaveToCSV(gazeDataCollection);
             //saves list of eye tracking data to csv file
         }
 
@@ -149,52 +151,42 @@ namespace EyeTracking_lEC
         }
 
         //function to record eye focus data to list
-        private void RegisterFocus(string objectID, float timestamp , int dir)
+        private void RegisterGaze(float time, string objectID, Vector3 objPosition, Vector3 objScale, Vector3 colPoint)
         {
-            focusObjectCollection.Add(new FocusChange(objectID, timestamp, dir));
-            
+            gazeDataCollection.Add(new GazeData( time, objectID, objPosition.x, objPosition.y, objPosition.z,
+                                   objScale.x, objScale.y, objScale.z,
+                                   colPoint.x, colPoint.y, colPoint.z));            
         }
 
-        private void RegisterFixationPoint(float timestamp, Vector3 colPoint)
+             //function to save data collection list to CSV file
+        void SaveToCSV(List<GazeData> dataList)
         {
-            fixationPointCollection.Add(new FixationPoint(timestamp, colPoint.x, colPoint.y, colPoint.z));
-        }
+            string filePath = Application.dataPath + "/CSV/" + "Gaze_Data.csv";
+            //string filePathFixPoint = Application.dataPath + "/CSV/" + "Fixation_Point.csv";
 
-        //function to save data collection list to CSV file
-        void SaveToCSV(List<FocusChange> focusObjectList, List<FixationPoint> fixationPointList)
-        {
-            string filePathObject = Application.dataPath + "/CSV/" + "Focus_Change.csv";
-            string filePathFixPoint = Application.dataPath + "/CSV/" + "Fixation_Point.csv";
-
-            StreamWriter writer1 = new StreamWriter(filePathObject);
-            writer1.WriteLine("Object,Time,Focus On/Off");
-            for (int i = 0; i < focusObjectList.Count; i++)
+            StreamWriter writer = new StreamWriter(filePath);
+            writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ");
+            for (int i = 0; i < dataList.Count; i++)
             {
-                writer1.WriteLine(focusObjectList[i].objectID + "," 
-                    + focusObjectList[i].time + "," 
-                    + focusObjectList[i].direction);
+                writer.WriteLine(dataList[i].time + "," + dataList[i].objectID + "," 
+                    + dataList[i].objPosX + "," + dataList[i].objPosY + "," + dataList[i].objPosZ + ","
+                    + dataList[i].objScaleX + "," + dataList[i].objScaleY + "," + dataList[i].objScaleZ + ","
+                    + dataList[i].colX + "," + dataList[i].colY + "," + dataList[i].colZ);
             }
-            writer1.Flush();
+            writer.Flush();
 
-            StreamWriter writer2 = new StreamWriter(filePathFixPoint);
-            writer2.WriteLine("Time,X,Y,Z");
-            for (int i = 0; i < fixationPointList.Count; i++)
-            {
-                writer2.WriteLine(fixationPointList[i].time + ","
-                    + fixationPointList[i].colX + ","
-                    + fixationPointList[i].colY + "," + fixationPointList[i].colZ);
-            }
-            writer2.Flush();
+            //StreamWriter writer2 = new StreamWriter(filePathFixPoint);
+            //writer2.WriteLine("Time,X,Y,Z");
+            //for (int i = 0; i < fixationPointList.Count; i++)
+            //{
+            //    writer2.WriteLine(fixationPointList[i].time + ","
+            //        + fixationPointList[i].colX + ","
+            //        + fixationPointList[i].colY + "," + fixationPointList[i].colZ);
+            //}
+            //writer2.Flush();
 
             //writer.Close();
             Debug.Log("CSV file written");
         }
-
-//        private string getPath()
-//        {
-//#if UNITY_EDITOR
-//            return Application.dataPath + "/CSV/" + "Data_Output.csv";
-
-//        }
     }
 }
