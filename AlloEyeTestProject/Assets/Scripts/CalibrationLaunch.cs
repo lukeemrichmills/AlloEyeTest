@@ -13,7 +13,7 @@ public class CalibrationLaunch : MonoBehaviour
     {
         if(calibrated == false)
         {
-            //SRanipal_Eye_API.LaunchEyeCalibration(IntPtr.Zero);
+            SRanipal_Eye_API.LaunchEyeCalibration(IntPtr.Zero);
             calibrated = true;
         }
     }
