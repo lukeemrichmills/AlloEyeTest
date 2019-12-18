@@ -52,9 +52,9 @@ public class ObjectMoveOnPlayerMove : MonoBehaviour
         //yield on a new YieldInstruction that waits for 5 seconds.
         yield return new WaitForSeconds(2);
     }
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = Color.magenta;
-        Gizmos.DrawCube(b.center, b.size);
-    }
+    //private void OnDrawGizmos()
+    //{
+    //    Gizmos.color = Color.magenta;
+    //    Gizmos.DrawCube(b.center, b.size);
+    //}
 }

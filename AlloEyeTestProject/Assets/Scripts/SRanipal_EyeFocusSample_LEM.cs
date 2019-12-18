@@ -102,31 +102,11 @@ namespace EyeTracking_lEC
                 //code that saves focus data, change this for collecting data or coding interactions with objects
                 if (eye_focus) 
                 {
+                    if(FocusInfo.collider.gameObject.CompareTag("ArrayObject"))
                     RegisterGaze(Time.time, FocusInfo.collider.gameObject.name, FocusInfo.transform.position,
                                  FocusInfo.transform.localScale, FocusInfo.point); //saves eye ray collision point
-
-                    //if (previousFocus != null && FocusInfo.collider.gameObject != previousFocus)
-                    //{
-                    //    RegisterGaze(Time.time, previousFocus.name, focusOff);
-                    //    RegisterGaze(Time.time, FocusInfo.collider.gameObject.name, FocusInfo.point, focusOn);
-                    //    previousFocus = FocusInfo.collider.gameObject;
-                    //}
-                    //else if (previousFocus == null && FocusInfo.collider.gameObject != previousFocus) //'previousFocus == null' not strictly necessary
-                    //{
-                    //    RegisterFocus(FocusInfo.collider.gameObject.name, Time.time, focusOn);
-                    //    previousFocus = FocusInfo.collider.gameObject;
-                    //}
                     break;
                 }
-                //else
-                //{
-                //    if (previousFocus != null)
-                //    {
-                //        RegisterFocus(previousFocus.name, Time.time, focusOff);
-                //        previousFocus = null;
-                //    }
-                //    break;
-                //}                
             }
         }
         //called when user stops playmode
@@ -174,18 +154,7 @@ namespace EyeTracking_lEC
                     + dataList[i].colX + "," + dataList[i].colY + "," + dataList[i].colZ);
             }
             writer.Flush();
-
-            //StreamWriter writer2 = new StreamWriter(filePathFixPoint);
-            //writer2.WriteLine("Time,X,Y,Z");
-            //for (int i = 0; i < fixationPointList.Count; i++)
-            //{
-            //    writer2.WriteLine(fixationPointList[i].time + ","
-            //        + fixationPointList[i].colX + ","
-            //        + fixationPointList[i].colY + "," + fixationPointList[i].colZ);
-            //}
-            //writer2.Flush();
-
-            //writer.Close();
+            
             Debug.Log("CSV file written");
         }
     }
