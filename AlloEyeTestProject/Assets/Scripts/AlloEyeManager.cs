@@ -20,6 +20,7 @@ namespace EyeTracking_lEC
         public readonly Vector3 viewerBDownPosition = new Vector3(0.448f, 1f, 0.469f);
         public readonly float viewingTimeSeconds = 5f;
         public bool viewingDone = false;
+        public int trialCode = 1; //probably a better way of determining trials, but this works for showcasing a few trials
 
         public void SetTransition(Transition t) { fsm.PerformTransition(t); }
 
