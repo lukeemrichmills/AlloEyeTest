@@ -11,13 +11,13 @@ namespace EyeTracking_lEC
     public class AlloEyeManager : MonoBehaviour
     {
         private FSMSystem fsm;
-        public readonly Vector3 positionACanvasPosition = new Vector3(0.51f, 0.17f, -0.77f);
-        public readonly Vector3 positionBCanvasPosition = new Vector3(1.18f, 0.17f, -0.73f);
-        public readonly Vector3 objectDumpPosition = new Vector3(0, -10f, 0);
-        public readonly Vector3 viewerAUpPosition = new Vector3(-0.221f, 2.3f, 0.361f);
-        public readonly Vector3 viewerADownPosition = new Vector3(-0.221f, 1f, 0.361f);
-        public readonly Vector3 viewerBUpPosition = new Vector3(0.363f, 2.3f, 0.354f);
-        public readonly Vector3 viewerBDownPosition = new Vector3(0.363f, 1f, 0.354f);
+        public readonly Vector3 positionACanvasPosition = new Vector3(0.682f, 0.17f, -0.565f);
+        public readonly Vector3 positionBCanvasPosition = new Vector3(1.248f, 0.17f, -0.579f);
+        public readonly Vector3 objectDumpPosition = new Vector3(-10f, -10f, -10f);
+        public readonly Vector3 viewerAUpPosition = new Vector3(-0.067f, 2.3f, 0.488f);
+        public readonly Vector3 viewerADownPosition = new Vector3(-0.067f, 1f, 0.488f);
+        public readonly Vector3 viewerBUpPosition = new Vector3(0.448f, 2.3f, 0.469f);
+        public readonly Vector3 viewerBDownPosition = new Vector3(0.448f, 1f, 0.469f);
         public readonly float viewingTimeSeconds = 5f;
         public bool viewingDone = false;
 
@@ -84,7 +84,6 @@ namespace EyeTracking_lEC
                 SRanipal_Eye_API.LaunchEyeCalibration(IntPtr.Zero);
             }
         }
-
     }
     public class AwaitCalibrationState : FSMState
     {
@@ -194,6 +193,8 @@ namespace EyeTracking_lEC
     {
         // public GameObject walkInstructionsCanvas
         public GameObject screenA;
+        public GameObject movingObject;
+        public Vector3 shiftVector;
 
         public ViewerADropDownState()
         {
@@ -212,6 +213,11 @@ namespace EyeTracking_lEC
             screenA = GameObject.Find("ScreenA");
             Vector3 downPosition = manager.GetComponent<AlloEyeManager>().viewerADownPosition;
             screenA.GetComponent<UpDown>().Dropping(downPosition);
+            movingObject = GameObject.Find("Sphere");
+            shiftVector = new Vector3(movingObject.transform.position.x - 0.14f,
+                                      movingObject.transform.position.y,
+                                      movingObject.transform.position.z - 0.08f);
+            movingObject.transform.position = shiftVector;
         }
     }
     public class SecondInstructionsState : FSMState

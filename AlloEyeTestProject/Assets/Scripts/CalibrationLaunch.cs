@@ -8,12 +8,13 @@ using System.Runtime.Serialization;
 public class CalibrationLaunch : MonoBehaviour
 {
     public bool calibrated = false;
+    
 
    public void LaunchCalibration()
     {
         if(calibrated == false)
         {
-            SRanipal_Eye_API.LaunchEyeCalibration(IntPtr.Zero);
+            //SRanipal_Eye_API.LaunchEyeCalibration(IntPtr.Zero); //uncomment to switch on
             calibrated = true;
         }
     }
