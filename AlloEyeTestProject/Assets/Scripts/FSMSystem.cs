@@ -57,14 +57,16 @@ public enum Transition
     ViewerALifted = 3,
     PositionAViewingComplete = 4,
     ViewerADropped = 5,
-    
-    Instructions2Pressed = 7,
+    ArrayAdjusted = 6,
+    Instructions2BPressed = 7,
     ViewerBLifted = 8,
     PositionBViewingComplete = 9,
     ViewerBDropped = 9,
     Question1Answered = 10, 
     Question2Answered = 11,
-
+    Instructions2APressed = 12,
+    ViewerADropped2 = 13,
+    TrialSwitched = 14,
 }
 
 /// <summary>
@@ -79,13 +81,14 @@ public enum StateID
     ViewerALiftUp = 3,
     PositionAViewing = 4,
     ViewerADropDown = 5,
-    
+    ArrayAdjustments = 6,
     Instructions2Showing = 7,
     ViewerBLiftUp = 8,
     PositionBViewing = 9,
     ViewerBDropDown = 10,
     Question1Showing = 11,
     Question2Showing = 12,
+    TrialEndSwitch = 13,
 }
 
 /// <summary>

@@ -19,13 +19,21 @@ namespace EyeTracking_lEC
         public readonly Vector3 viewerBUpPosition = new Vector3(0.448f, 2.3f, 0.469f);
         public readonly Vector3 viewerBDownPosition = new Vector3(0.448f, 1f, 0.469f);
         public readonly float viewingTimeSeconds = 5f;
-        public bool viewingDone = false;
-        public int trialCode = 1; //probably a better way of determining trials, but this works for showcasing a few trials
-
+        public readonly float trialEndWaitTime = 3f; //also in seconds
+        public bool viewingDone = false; //bool used for determining whether any viewing phase has been completed
+        public bool firstViewOnce = false; //bool used for determining if first viewing phase has been completed (for no-move condition)
+        public int trialCounter = 0;
+        public int trialLimit = 3; //change this for when to stop
+        public int moveCode = 1; //1 = move (walk); 2 = move (teleport); 3 = don't move (stick). Change to enum?
+        public bool tableRotation = false; //false = no table rotation; true = table rotates.
+        public bool objectShift = true; //true = an object moves; false = no objects move. 
+        //public enum MoveCode { Walk, Teleport, Stick};   
+       
         public void SetTransition(Transition t) { fsm.PerformTransition(t); }
 
         void Start()
         {
+            //MoveCode trialMoveCode = MoveCode.Stick;
             MakeFSM();
         }
         void Update()
@@ -44,15 +52,25 @@ namespace EyeTracking_lEC
             FirstViewing view1 = new FirstViewing();
             view1.AddTransition(Transition.PositionAViewingComplete, StateID.ViewerADropDown);
             ViewerADropDownState dropA = new ViewerADropDownState();
-            dropA.AddTransition(Transition.ViewerADropped, StateID.Instructions2Showing);
+            dropA.AddTransition(Transition.ViewerADropped, StateID.ArrayAdjustments); //all conditions
+            dropA.AddTransition(Transition.ViewerADropped2, StateID.Question1Showing); //no move condition
+            ArrayAdjustments aa = new ArrayAdjustments();
+            aa.AddTransition(Transition.ArrayAdjusted, StateID.Instructions2Showing);
             SecondInstructionsState i2 = new SecondInstructionsState();
-            i2.AddTransition(Transition.Instructions2Pressed, StateID.ViewerBLiftUp);
+            i2.AddTransition(Transition.Instructions2BPressed, StateID.ViewerBLiftUp); //from position B (move conditions)
+            i2.AddTransition(Transition.Instructions2APressed, StateID.ViewerALiftUp); //from position A (no move condition)
             ViewerBLiftUpState liftUpB = new ViewerBLiftUpState();
             liftUpB.AddTransition(Transition.ViewerBLifted, StateID.PositionBViewing);
             SecondViewing view2 = new SecondViewing();
             view2.AddTransition(Transition.PositionBViewingComplete, StateID.ViewerBDropDown);
             ViewerBDropDownState dropB = new ViewerBDropDownState();
             dropB.AddTransition(Transition.ViewerBDropped, StateID.Question1Showing);
+            Question1Showing q1 = new Question1Showing();
+            q1.AddTransition(Transition.Question1Answered, StateID.Question2Showing);
+            Question2Showing q2 = new Question2Showing();
+            q2.AddTransition(Transition.Question2Answered, StateID.TrialEndSwitch);
+            TrialEndSwitch tes = new TrialEndSwitch();
+            tes.AddTransition(Transition.TrialSwitched, StateID.AwaitingInstructionsOK1);
 
             fsm = new FSMSystem();
             fsm.AddState(ac);
@@ -60,19 +78,22 @@ namespace EyeTracking_lEC
             fsm.AddState(liftUpA);
             fsm.AddState(view1);
             fsm.AddState(dropA);
+            fsm.AddState(aa);
             fsm.AddState(i2);
             fsm.AddState(liftUpB);
             fsm.AddState(view2);
             fsm.AddState(dropB);
-
+            fsm.AddState(q1);
+            fsm.AddState(q2);
+            fsm.AddState(tes);
         }
-        public void ViewTime()
+        public void WaitTime(float time)
         {
-            StartCoroutine(ViewTimeCoroutine());
+            StartCoroutine(WaitTimeCoroutine(time));
         }
-        IEnumerator ViewTimeCoroutine()
+        IEnumerator WaitTimeCoroutine(float time)
         {
-            yield return new WaitForSeconds(viewingTimeSeconds);
+            yield return new WaitForSeconds(time);
             viewingDone = true;
         }
         private void OnGUI()
@@ -176,7 +197,7 @@ namespace EyeTracking_lEC
             bool vD = manager.GetComponent<AlloEyeManager>().viewingDone;
             if (vD2 == false)
             {
-                manager.GetComponent<AlloEyeManager>().ViewTime();
+                manager.GetComponent<AlloEyeManager>().WaitTime(manager.GetComponent<AlloEyeManager>().viewingTimeSeconds);
                 vD2 = true;
             }
             if (vD == true)
@@ -194,9 +215,7 @@ namespace EyeTracking_lEC
     {
         // public GameObject walkInstructionsCanvas
         public GameObject screenA;
-        public GameObject movingObject;
-        public Vector3 shiftVector;
-
+        
         public ViewerADropDownState()
         {
             stateID = StateID.ViewerADropDown;
@@ -204,9 +223,15 @@ namespace EyeTracking_lEC
         public override void Reason(GameObject manager)
         {
             screenA = GameObject.Find("ScreenA");
-            if (screenA.transform.position == manager.GetComponent<AlloEyeManager>().viewerADownPosition)
+            if (screenA.transform.position == manager.GetComponent<AlloEyeManager>().viewerADownPosition
+                & manager.GetComponent<AlloEyeManager>().firstViewOnce == false) //viewer down AND haven't viewed before
             {
-                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ViewerADropped);
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ViewerADropped); //transition to array adjustments
+                manager.GetComponent<AlloEyeManager>().firstViewOnce = true; //mark first viewing as done
+            }
+            else if (screenA.transform.position == manager.GetComponent<AlloEyeManager>().viewerADownPosition) //viewer down (AND have viewed before)
+            {
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ViewerADropped2); //transition to questions
             }
         }
         public override void Act(GameObject manager)
@@ -214,16 +239,53 @@ namespace EyeTracking_lEC
             screenA = GameObject.Find("ScreenA");
             Vector3 downPosition = manager.GetComponent<AlloEyeManager>().viewerADownPosition;
             screenA.GetComponent<UpDown>().Dropping(downPosition);
-            movingObject = GameObject.Find("Sphere");
-            shiftVector = new Vector3(movingObject.transform.position.x - 0.14f,
-                                      movingObject.transform.position.y,
-                                      movingObject.transform.position.z - 0.08f);
-            movingObject.transform.position = shiftVector;
+        }
+    }
+    public class ArrayAdjustments : FSMState
+    {
+        public GameObject movingObject;
+        public Vector3 shiftVector;
+        public bool adjustmentsMade = false;
+        public GameObject table;
+
+        public ArrayAdjustments()
+        {
+            stateID = StateID.ArrayAdjustments;
+        }
+        public override void Reason(GameObject manager)
+        {
+            if (adjustmentsMade == true)
+            {
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ArrayAdjusted);
+            }
+        }
+        public override void Act(GameObject manager)
+        {
+            //whether object shifts or not
+            if (manager.GetComponent<AlloEyeManager>().objectShift == true)
+            {
+                    movingObject = GameObject.Find("Sphere");
+                    shiftVector = new Vector3(movingObject.transform.position.x - 0.14f,
+                                              movingObject.transform.position.y,
+                                              movingObject.transform.position.z - 0.08f);
+                    movingObject.transform.position = shiftVector;
+            }
+            //whether table rotates or not
+            if (manager.GetComponent<AlloEyeManager>().tableRotation == true)
+            {
+                //rotate table
+                //find table
+                //transform.rotate 90f by y axis - rotate by same angle as positions?
+                table = GameObject.Find("Table");
+                table.transform.Rotate(0f, 90f, 0f);
+            }
+            adjustmentsMade = true;
         }
     }
     public class SecondInstructionsState : FSMState
     {
         public GameObject walkInstructionsCanvas;
+        public GameObject teleportInstructionsCanvas;
         public GameObject secondInstructionsCanvas;
         public GameObject startButton;
 
@@ -234,18 +296,39 @@ namespace EyeTracking_lEC
         public override void Reason(GameObject manager)
         {
             startButton = GameObject.Find("StartButton2");
-            if (startButton.GetComponent<RegisterPress>().pressBool == true)
+            if (startButton.GetComponent<RegisterPress>().pressBool == true &
+                manager.GetComponent<AlloEyeManager>().moveCode != 3)
             {
-                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Instructions2Pressed);
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Instructions2BPressed);
+            }
+            else if(startButton.GetComponent<RegisterPress>().pressBool == true)
+            {
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Instructions2APressed);
             }
         }
         public override void Act(GameObject manager)
         {
-            walkInstructionsCanvas = GameObject.Find("WalkInstructionsCanvas");
             secondInstructionsCanvas = GameObject.Find("SecondInstructionsCanvas");
+            if (manager.GetComponent<AlloEyeManager>().moveCode != 3)
+            {
+                secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionBCanvasPosition;
 
-            walkInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
-            secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionBCanvasPosition;
+                if (manager.GetComponent<AlloEyeManager>().moveCode == 1)
+                {
+                    walkInstructionsCanvas = GameObject.Find("WalkInstructionsCanvas");
+                    walkInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
+                }
+                else
+                {
+                    teleportInstructionsCanvas = GameObject.Find("TeleportInstructionsCanvas");
+                    teleportInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
+                }
+            }
+            else
+            {
+                secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
+                secondInstructionsCanvas.GetComponent<RectTransform>().Rotate(0f, 42.56f, 0f);
+            }
         }
     }
     public class ViewerBLiftUpState : FSMState
@@ -290,12 +373,13 @@ namespace EyeTracking_lEC
             bool vD = manager.GetComponent<AlloEyeManager>().viewingDone;
             if (vD2 == false)
             {
-                manager.GetComponent<AlloEyeManager>().ViewTime();
+                manager.GetComponent<AlloEyeManager>().WaitTime(manager.GetComponent<AlloEyeManager>().viewingTimeSeconds);
                 vD2 = true;
             }
             if (vD == true)
             {
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.PositionBViewingComplete);
+                manager.GetComponent<AlloEyeManager>().viewingDone = false;
             }
         }
         public override void Act(GameObject manager)
@@ -307,6 +391,7 @@ namespace EyeTracking_lEC
     {
         // public GameObject walkInstructionsCanvas
         public GameObject screenB;
+        public GameObject walkBackCanvas;
 
         public ViewerBDropDownState()
         {
@@ -317,6 +402,8 @@ namespace EyeTracking_lEC
             screenB = GameObject.Find("ScreenB");
             if (screenB.transform.position == manager.GetComponent<AlloEyeManager>().viewerBDownPosition)
             {
+                walkBackCanvas = GameObject.Find("WalkBackInstructionsCanvas");
+                walkBackCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionBCanvasPosition;
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ViewerBDropped);
             }
         }
@@ -325,6 +412,112 @@ namespace EyeTracking_lEC
             screenB = GameObject.Find("ScreenB");
             Vector3 downPosition = manager.GetComponent<AlloEyeManager>().viewerBDownPosition;
             screenB.GetComponent<UpDown>().Dropping(downPosition);
+            //show canvas at position B instructing participant to walk back to starting position 
+        }
+    }
+    public class Question1Showing : FSMState
+    {
+        public GameObject q1Canvas;
+        public GameObject yButton;
+        public GameObject nButton;
+
+        public Question1Showing()
+        {
+            stateID = StateID.Question1Showing;
+        }
+        public override void Reason(GameObject manager)
+        {
+            yButton = GameObject.Find("Yes1");
+            nButton = GameObject.Find("No1");
+            if (yButton.GetComponent<RegisterPress>().pressBool == true | nButton.GetComponent<RegisterPress>().pressBool == true)
+            {
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Question1Answered);
+                q1Canvas = GameObject.Find("Question1");
+                q1Canvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+            }
+        }
+        public override void Act(GameObject manager)
+        {
+            q1Canvas = GameObject.Find("Question1");
+            q1Canvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
+        }
+    }
+    public class Question2Showing : FSMState
+    {
+        public GameObject q2Canvas;
+        public GameObject walkBackCanvas;
+        public GameObject cubeButton;
+        public GameObject sphereButton;
+        public GameObject cylinderButton;
+        public GameObject capsuleButton;
+
+        public Question2Showing()
+        {
+            stateID = StateID.Question2Showing;
+        }
+        public override void Reason(GameObject manager)
+        {
+            cubeButton = GameObject.Find("CubeButton");
+            sphereButton = GameObject.Find("SphereButton");
+            cylinderButton = GameObject.Find("CylinderButton");
+            capsuleButton = GameObject.Find("CapsuleButton");
+
+            if (cubeButton.GetComponent<RegisterPress>().pressBool == true | sphereButton.GetComponent<RegisterPress>().pressBool == true
+                | cylinderButton.GetComponent<RegisterPress>().pressBool == true | capsuleButton.GetComponent<RegisterPress>().pressBool == true)
+            {
+                manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Question2Answered);
+                q2Canvas = GameObject.Find("Question2");
+                q2Canvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+                walkBackCanvas = GameObject.Find("WalkBackInstructionsCanvas");
+                walkBackCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+            }
+        }
+        public override void Act(GameObject manager)
+        {
+            q2Canvas = GameObject.Find("Question2");
+            q2Canvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
+        }
+    }
+    public class TrialEndSwitch : FSMState
+    {
+        bool vD;
+        bool vD2 = false;
+
+        public TrialEndSwitch()
+        {
+            stateID = StateID.TrialEndSwitch;
+        }
+        public override void Reason(GameObject manager)
+        {
+            bool vD = manager.GetComponent<AlloEyeManager>().viewingDone;
+            if (manager.GetComponent<AlloEyeManager>().trialCounter < manager.GetComponent<AlloEyeManager>().trialLimit)
+            {
+                if (vD2 == false)
+                {
+                    manager.GetComponent<AlloEyeManager>().WaitTime(manager.GetComponent<AlloEyeManager>().trialEndWaitTime);
+                    vD2 = true;
+                }
+                if (vD == true)
+                {
+                    //change independent variables - eventually need to find way to randomise with equal variation across conditions
+                    //currently the variables simply switch in a set way
+                    manager.GetComponent<AlloEyeManager>().moveCode++;
+                    manager.GetComponent<AlloEyeManager>().objectShift = !manager.GetComponent<AlloEyeManager>().objectShift;
+                    manager.GetComponent<AlloEyeManager>().tableRotation = !manager.GetComponent<AlloEyeManager>().tableRotation;
+
+                    manager.GetComponent<AlloEyeManager>().SetTransition(Transition.TrialSwitched);
+                    manager.GetComponent<AlloEyeManager>().viewingDone = false;
+                }
+            }
+            else
+            {
+                //show canvas instructing participants that trial has ended and they can now take off the headset
+            }
+
+        }
+        public override void Act(GameObject manager)
+        {
+           //do nothing
         }
     }
 }
