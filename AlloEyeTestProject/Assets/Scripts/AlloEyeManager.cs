@@ -44,12 +44,14 @@ namespace EyeTracking_lEC
         public GameObject cube;
         public GameObject cylinder;
         public GameObject capsule;
+        public GameObject hamburger;
+        public float hamburgerY = 0.6026f;
         public List<GameObject> arrayObjectsPrePlace = new List<GameObject>();
         public List<GameObject> arrayObjectsPostPlace = new List<GameObject>();
         public GameObject table;
 
         Vector3 randPos;
-        readonly float minDistance = 0.2f;
+        public readonly float minDistance = 0.22f; // separation distance between objects, tested by eye
 
         void Start()
         {
@@ -65,6 +67,9 @@ namespace EyeTracking_lEC
             arrayObjectsPrePlace.Add(cylinder);
             capsule = GameObject.Find("Capsule");
             arrayObjectsPrePlace.Add(capsule);
+            hamburger = GameObject.Find("Hamburger");
+            arrayObjectsPrePlace.Add(hamburger);
+            Debug.Log("hamburger: " + hamburger.transform.position.ToString("F4"));
             //put in object dump
             foreach (GameObject go in arrayObjectsPrePlace)
             {
@@ -80,8 +85,7 @@ namespace EyeTracking_lEC
                 int randSelect = UnityEngine.Random.Range(0, arrayObjectsPrePlace.Count); //select a random object to place
                 GameObject objectToPlace = arrayObjectsPrePlace[randSelect]; //save to another object
                 arrayObjectsPrePlace.Remove(arrayObjectsPrePlace[randSelect]); //remove this from pre placement array
-                Debug.Log(arrayObjectsPrePlace.Count + " arrayObjects");
-
+                
                 //Placing Objects on Table
                 int farEnoughCount  = 0; //counter for how many objects are too close to the object being placed, default set to 0
                 while (farEnoughCount < arrayObjectsPostPlace.Count) //while the number of objects that are far enough away from the object being placed is less than the total number of objects on the table...
@@ -322,6 +326,8 @@ namespace EyeTracking_lEC
         public Vector3 shiftVector;
         public bool adjustmentsMade = false;
         public GameObject table;
+        public List<GameObject> objectsNotMoving = new List<GameObject>();
+
 
         public ArrayAdjustments()
         {
@@ -339,11 +345,42 @@ namespace EyeTracking_lEC
             //whether object shifts or not
             if (manager.GetComponent<AlloEyeManager>().objectShift == true)
             {
-                    movingObject = GameObject.Find("Sphere");
-                    shiftVector = new Vector3(movingObject.transform.position.x - 0.14f,
-                                              movingObject.transform.position.y,
-                                              movingObject.transform.position.z - 0.08f);
-                    movingObject.transform.position = shiftVector;
+                objectsNotMoving = manager.GetComponent<AlloEyeManager>().arrayObjectsPostPlace; //set objectsNotMoving to all objects on table
+                int randIndex = UnityEngine.Random.Range(0, objectsNotMoving.Count); //select a random object to shift
+                GameObject objectToShift = objectsNotMoving[randIndex]; //save to another object
+                objectsNotMoving.Remove(objectsNotMoving[randIndex]);//remove this from objects not moving (because it will move!)
+
+                table = GameObject.Find("Table");
+                Vector3 tableTop = new Vector3(table.transform.position.x, 0.6392f, table.transform.position.z);
+
+                //generate random position on table
+                Vector3 randPos = tableTop + (UnityEngine.Random.insideUnitSphere * (table.transform.localScale.x / 2 - 0.1f));
+                randPos = new Vector3(randPos.x, 0.6392f, randPos.z); //fixed to top of table
+
+                int farEnoughCount = 0; //count for far enough away from each other object on the table
+                while (farEnoughCount < objectsNotMoving.Count)
+                {
+                    farEnoughCount = 0;
+                    //Vector2 randVector = (UnityEngine.Random.insideUnitCircle * 0.25f); //generate random 2D vector within 0.25 radius
+                    //Vector3 shiftVector = objectToShift.transform.position + new Vector3(randVector.x, 0f, randVector.y); //convert to 3D relative to object to move
+
+                    //generate random position on table
+                    randPos = tableTop + (UnityEngine.Random.insideUnitSphere * (table.transform.localScale.x / 2 - 0.1f));
+                    randPos = new Vector3(randPos.x, 0.6392f, randPos.z); //fixed to top of table
+
+                    float d = Vector3.Distance(objectToShift.transform.position, randPos); //for debugging
+                    if (d >= 0.15f & d < 0.5) //range of distances 
+                    {
+                        foreach (GameObject go in objectsNotMoving)
+                        {
+                            if (Vector3.Distance(randPos, go.transform.position) > manager.GetComponent<AlloEyeManager>().minDistance)
+                            {
+                                farEnoughCount++;
+                            }
+                        }
+                    }
+                }
+                objectToShift.transform.position = randPos;
             }
             //whether table rotates or not
             if (manager.GetComponent<AlloEyeManager>().tableRotation == true)
@@ -352,7 +389,7 @@ namespace EyeTracking_lEC
                 //find table
                 //transform.rotate 90f by y axis - rotate by same angle as positions?
                 table = GameObject.Find("Table");
-                table.transform.Rotate(0f, 90f, 0f);
+                table.transform.Rotate(0f, -90f, 0f);
             }
             adjustmentsMade = true;
         }
