@@ -10,7 +10,11 @@ namespace EyeTracking_lEC
 {
     public class AlloEyeManager : MonoBehaviour
     {
+        //finite state machine
         private FSMSystem fsm;
+        public void SetTransition(Transition t) { fsm.PerformTransition(t); }
+
+        //define vectors for positions
         public readonly Vector3 positionACanvasPosition = new Vector3(0.682f, 0.17f, -0.565f);
         public readonly Vector3 positionBCanvasPosition = new Vector3(1.248f, 0.17f, -0.579f);
         public readonly Vector3 objectDumpPosition = new Vector3(-10f, -10f, -10f);
@@ -18,21 +22,87 @@ namespace EyeTracking_lEC
         public readonly Vector3 viewerADownPosition = new Vector3(-0.067f, 1f, 0.488f);
         public readonly Vector3 viewerBUpPosition = new Vector3(0.448f, 2.3f, 0.469f);
         public readonly Vector3 viewerBDownPosition = new Vector3(0.448f, 1f, 0.469f);
+
+        //define times for waiting
         public readonly float viewingTimeSeconds = 5f;
         public readonly float trialEndWaitTime = 3f; //also in seconds
+
+        //define booleans
         public bool viewingDone = false; //bool used for determining whether any viewing phase has been completed
         public bool firstViewOnce = false; //bool used for determining if first viewing phase has been completed (for no-move condition)
+
+        //define trial variables
         public int trialCounter = 0;
         public int trialLimit = 3; //change this for when to stop
         public int moveCode = 1; //1 = move (walk); 2 = move (teleport); 3 = don't move (stick). Change to enum?
         public bool tableRotation = false; //false = no table rotation; true = table rotates.
         public bool objectShift = true; //true = an object moves; false = no objects move. 
         //public enum MoveCode { Walk, Teleport, Stick};   
-       
-        public void SetTransition(Transition t) { fsm.PerformTransition(t); }
+
+        //define objects in array including table
+        public GameObject sphere;
+        public GameObject cube;
+        public GameObject cylinder;
+        public GameObject capsule;
+        public List<GameObject> arrayObjectsPrePlace = new List<GameObject>();
+        public List<GameObject> arrayObjectsPostPlace = new List<GameObject>();
+        public GameObject table;
+
+        Vector3 randPos;
+        readonly float minDistance = 0.2f;
 
         void Start()
         {
+            //get table
+            table = GameObject.Find("Table");
+            Vector3 tableTop = new Vector3(table.transform.position.x, 0.6392f, table.transform.position.z);
+            //get array objects and add to a pre-placement list
+            sphere = GameObject.Find("Sphere");
+            arrayObjectsPrePlace.Add(sphere); 
+            cube = GameObject.Find("Cube");
+            arrayObjectsPrePlace.Add(cube);
+            cylinder = GameObject.Find("Cylinder");
+            arrayObjectsPrePlace.Add(cylinder);
+            capsule = GameObject.Find("Capsule");
+            arrayObjectsPrePlace.Add(capsule);
+            //put in object dump
+            foreach (GameObject go in arrayObjectsPrePlace)
+            {
+                go.transform.position = objectDumpPosition;
+            }
+
+            //generate random position on table
+            randPos = tableTop + (UnityEngine.Random.insideUnitSphere * (table.transform.localScale.x / 2 - 0.1f));
+            randPos = new Vector3(randPos.x, 0.6392f, randPos.z); //fixed to top of table
+
+            while (arrayObjectsPrePlace.Count > 0) //while still objects left to place
+            {
+                int randSelect = UnityEngine.Random.Range(0, arrayObjectsPrePlace.Count); //select a random object to place
+                GameObject objectToPlace = arrayObjectsPrePlace[randSelect]; //save to another object
+                arrayObjectsPrePlace.Remove(arrayObjectsPrePlace[randSelect]); //remove this from pre placement array
+                Debug.Log(arrayObjectsPrePlace.Count + " arrayObjects");
+
+                //Placing Objects on Table
+                int farEnoughCount  = 0; //counter for how many objects are too close to the object being placed, default set to 0
+                while (farEnoughCount < arrayObjectsPostPlace.Count) //while the number of objects that are far enough away from the object being placed is less than the total number of objects on the table...
+                {
+                    farEnoughCount = 0; //reset counter with every new random position
+                    //generate random position on table
+                    randPos = tableTop + (UnityEngine.Random.insideUnitSphere * (table.transform.localScale.x / 2 - 0.1f));
+                    randPos = new Vector3(randPos.x, 0.6392f, randPos.z); //fixed to top of table
+                    
+                    foreach (GameObject go in arrayObjectsPostPlace) //for each object on the table
+                    {
+                        float d = Vector3.Distance(randPos, go.transform.position); //for debugging
+                        if (Vector3.Distance(randPos, go.transform.position) > minDistance) //if the distance between random position and objects on table is greater than min distance
+                        {
+                            farEnoughCount++;
+                        }
+                    }
+                }
+                objectToPlace.transform.position = randPos; // place object
+                arrayObjectsPostPlace.Add(objectToPlace); //add to list of objects on table
+            }
             //MoveCode trialMoveCode = MoveCode.Stick;
             MakeFSM();
         }
@@ -43,6 +113,7 @@ namespace EyeTracking_lEC
         }
         private void MakeFSM()
         {
+            //define each state in FSM and their possible transitions
             AwaitCalibrationState ac = new AwaitCalibrationState();
             ac.AddTransition(Transition.CalibrationButtonPressed, StateID.AwaitingInstructionsOK1);
             FirstInstructionsState i1 = new FirstInstructionsState();
@@ -72,6 +143,7 @@ namespace EyeTracking_lEC
             TrialEndSwitch tes = new TrialEndSwitch();
             tes.AddTransition(Transition.TrialSwitched, StateID.AwaitingInstructionsOK1);
 
+            //add each state to create FSM
             fsm = new FSMSystem();
             fsm.AddState(ac);
             fsm.AddState(i1);
@@ -147,6 +219,7 @@ namespace EyeTracking_lEC
             if(startButton.GetComponent<RegisterPress>().pressBool == true)
             {
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Instructions1OKPressed);
+                startButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
             }       
         }
         public override void Act(GameObject manager)
@@ -204,6 +277,8 @@ namespace EyeTracking_lEC
             {
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.PositionAViewingComplete);
                 manager.GetComponent<AlloEyeManager>().viewingDone = false;
+                vD2 = false;
+                
             }
         }
         public override void Act(GameObject manager)
@@ -300,10 +375,16 @@ namespace EyeTracking_lEC
                 manager.GetComponent<AlloEyeManager>().moveCode != 3)
             {
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Instructions2BPressed);
+                startButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
+                secondInstructionsCanvas = GameObject.Find("SecondInstructionsCanvas");
+                secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
             }
             else if(startButton.GetComponent<RegisterPress>().pressBool == true)
             {
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Instructions2APressed);
+                startButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
+                secondInstructionsCanvas = GameObject.Find("SecondInstructionsCanvas");
+                secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
             }
         }
         public override void Act(GameObject manager)
@@ -327,7 +408,7 @@ namespace EyeTracking_lEC
             else
             {
                 secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionACanvasPosition;
-                secondInstructionsCanvas.GetComponent<RectTransform>().Rotate(0f, 42.56f, 0f);
+                secondInstructionsCanvas.GetComponent<RectTransform>().eulerAngles = new Vector3(0f, 42.56f, 0f); //define this at the beginning
             }
         }
     }
@@ -335,6 +416,7 @@ namespace EyeTracking_lEC
     {
         public GameObject secondInstructionsCanvas;
         public GameObject walkInstructionsCanvas;
+        public GameObject teleportInstructionsCanvas;
         public GameObject screenB;
 
         public ViewerBLiftUpState()
@@ -355,6 +437,8 @@ namespace EyeTracking_lEC
             secondInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
             walkInstructionsCanvas = GameObject.Find("WalkInstructionsCanvas");
             walkInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+            teleportInstructionsCanvas = GameObject.Find("TeleportInstructionsCanvas");
+            teleportInstructionsCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
             screenB = GameObject.Find("ScreenB");
             Vector3 upPosition = manager.GetComponent<AlloEyeManager>().viewerBUpPosition;
             screenB.GetComponent<UpDown>().Lifting(upPosition);
@@ -380,6 +464,7 @@ namespace EyeTracking_lEC
             {
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.PositionBViewingComplete);
                 manager.GetComponent<AlloEyeManager>().viewingDone = false;
+                vD2 = false;
             }
         }
         public override void Act(GameObject manager)
@@ -392,6 +477,7 @@ namespace EyeTracking_lEC
         // public GameObject walkInstructionsCanvas
         public GameObject screenB;
         public GameObject walkBackCanvas;
+        public GameObject teleportBackCanvas;
 
         public ViewerBDropDownState()
         {
@@ -400,19 +486,26 @@ namespace EyeTracking_lEC
         public override void Reason(GameObject manager)
         {
             screenB = GameObject.Find("ScreenB");
-            if (screenB.transform.position == manager.GetComponent<AlloEyeManager>().viewerBDownPosition)
+            if (screenB.transform.position == manager.GetComponent<AlloEyeManager>().viewerBDownPosition
+                & manager.GetComponent<AlloEyeManager>().moveCode == 1)
             {
                 walkBackCanvas = GameObject.Find("WalkBackInstructionsCanvas");
                 walkBackCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionBCanvasPosition;
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ViewerBDropped);
             }
+            else if (screenB.transform.position == manager.GetComponent<AlloEyeManager>().viewerBDownPosition
+                    & manager.GetComponent<AlloEyeManager>().moveCode == 2)
+                 {
+                    teleportBackCanvas = GameObject.Find("TeleportBackInstructionsCanvas");
+                    teleportBackCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().positionBCanvasPosition;
+                    manager.GetComponent<AlloEyeManager>().SetTransition(Transition.ViewerBDropped);
+                 }
         }
         public override void Act(GameObject manager)
         {
             screenB = GameObject.Find("ScreenB");
             Vector3 downPosition = manager.GetComponent<AlloEyeManager>().viewerBDownPosition;
             screenB.GetComponent<UpDown>().Dropping(downPosition);
-            //show canvas at position B instructing participant to walk back to starting position 
         }
     }
     public class Question1Showing : FSMState
@@ -434,6 +527,8 @@ namespace EyeTracking_lEC
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Question1Answered);
                 q1Canvas = GameObject.Find("Question1");
                 q1Canvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+                yButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
+                nButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
             }
         }
         public override void Act(GameObject manager)
@@ -446,6 +541,7 @@ namespace EyeTracking_lEC
     {
         public GameObject q2Canvas;
         public GameObject walkBackCanvas;
+        public GameObject teleportBackCanvas;
         public GameObject cubeButton;
         public GameObject sphereButton;
         public GameObject cylinderButton;
@@ -465,11 +561,22 @@ namespace EyeTracking_lEC
             if (cubeButton.GetComponent<RegisterPress>().pressBool == true | sphereButton.GetComponent<RegisterPress>().pressBool == true
                 | cylinderButton.GetComponent<RegisterPress>().pressBool == true | capsuleButton.GetComponent<RegisterPress>().pressBool == true)
             {
+                //transition
                 manager.GetComponent<AlloEyeManager>().SetTransition(Transition.Question2Answered);
+
+                //remove canvases
                 q2Canvas = GameObject.Find("Question2");
                 q2Canvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
                 walkBackCanvas = GameObject.Find("WalkBackInstructionsCanvas");
                 walkBackCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+                teleportBackCanvas = GameObject.Find("TeleportBackInstructionsCanvas");
+                teleportBackCanvas.GetComponent<RectTransform>().localPosition = manager.GetComponent<AlloEyeManager>().objectDumpPosition;
+
+                //reset buttons for next trial
+                cubeButton.GetComponent<RegisterPress>().pressBool = false; 
+                sphereButton.GetComponent<RegisterPress>().pressBool = false; 
+                cylinderButton.GetComponent<RegisterPress>().pressBool = false; 
+                capsuleButton.GetComponent<RegisterPress>().pressBool = false; 
             }
         }
         public override void Act(GameObject manager)
@@ -482,6 +589,7 @@ namespace EyeTracking_lEC
     {
         bool vD;
         bool vD2 = false;
+        public GameObject table;
 
         public TrialEndSwitch()
         {
@@ -505,8 +613,18 @@ namespace EyeTracking_lEC
                     manager.GetComponent<AlloEyeManager>().objectShift = !manager.GetComponent<AlloEyeManager>().objectShift;
                     manager.GetComponent<AlloEyeManager>().tableRotation = !manager.GetComponent<AlloEyeManager>().tableRotation;
 
+                    //transition
                     manager.GetComponent<AlloEyeManager>().SetTransition(Transition.TrialSwitched);
+
+                    //reset bools
+                    manager.GetComponent<AlloEyeManager>().firstViewOnce = false; 
                     manager.GetComponent<AlloEyeManager>().viewingDone = false;
+                    vD2 = false;
+
+                    //reset array
+                    table = GameObject.Find("Table");
+                    table.transform.eulerAngles = Vector3.zero;
+                    //reset sphere
                 }
             }
             else
