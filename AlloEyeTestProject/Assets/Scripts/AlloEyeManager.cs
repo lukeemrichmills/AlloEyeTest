@@ -5,11 +5,13 @@ using System;
 using ViveSR.anipal.Eye;
 using System.Runtime.Serialization;
 using UnityEngine.UI;
+using System.IO;
 
 namespace EyeTracking_lEC
 {
     public class AlloEyeManager : MonoBehaviour
     {
+        public readonly int ppt = 1; //ppt ID
         //finite state machine
         private FSMSystem fsm;
         public void SetTransition(Transition t) { fsm.PerformTransition(t); }
@@ -55,9 +57,23 @@ namespace EyeTracking_lEC
         public readonly float minDistance = 0.23f; // separation distance between objects, tested by eye
         public float theta;
 
+        public string dataFile;
+
+        public SRanipal_EyeFocusSample_LEM sranipal;
+
         void Start()
         {
             trialCounter = 1;
+            GameObject efa = GameObject.Find("EyeFocusArray");
+            sranipal = efa.GetComponent<SRanipal_EyeFocusSample_LEM>();
+
+            //create CSV file and headers
+            dataFile = Application.dataPath + "/CSV/" + "Gaze_Data" + ppt + ".csv";
+            StreamWriter writer = new StreamWriter(dataFile);
+            writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
+                                "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2 ");
+            writer.Flush();
+            Debug.Log("CSV file created");
 
             //get table
             table = GameObject.Find("Table");
@@ -356,7 +372,28 @@ namespace EyeTracking_lEC
         }
         public override void Act(GameObject manager)
         {
-            //do nothing
+            AlloEyeManager aem = manager.GetComponent<AlloEyeManager>();
+            //collect data
+            //get SRanipal_EyeFocusSample_LEM
+            List<GazeData> dataList = aem.sranipal.gazeDataCollection;
+            //get output of RegisterGaze
+
+            //add to CSV alongside other data
+            //StreamWriter writer = new StreamWriter(aem.dataFile);
+            //writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
+            //                    "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2 ");
+            for (int i = 0; i < dataList.Count; i++)
+            {
+                string newLine = (dataList[i].time.ToString() + "," + dataList[i].objectID.ToString() + ","
+                   + dataList[i].objPosX.ToString() + "," + dataList[i].objPosY.ToString() + "," + dataList[i].objPosZ.ToString() + ","
+                   + dataList[i].objScaleX.ToString() + "," + dataList[i].objScaleY.ToString() + "," + dataList[i].objScaleZ.ToString() + ","
+                   + dataList[i].colX.ToString() + "," + dataList[i].colY.ToString() + "," + dataList[i].colZ.ToString() + "," 
+                   + aem.trialCounter.ToString() + "," + 1 + "," + "A" + "," + aem.tableRotation.ToString() + "," + 
+                   aem.objectShift.ToString() + "," + objectThatShift + blank + blank);
+                File.AppendAllText(aem.dataFile, newLine); // NEED TO WORK THIS OUT! 
+            }
+           
+            //writer.Flush();
         }
     }
     public class ViewerADropDownState : FSMState
@@ -420,15 +457,15 @@ namespace EyeTracking_lEC
             {
                 table = GameObject.Find("Table");
                 aem.RandomObjectShift(aem.arrayObjectsPostPlace, table);
+                //collect data - could either put in RandomObjectShift or output data from the function and collect data here (or in separate function)
             }
             //whether table rotates or not
             if (aem.tableRotation == true)
             {
                 //rotate table
-                //find table
-                //transform.rotate 90f by y axis - rotate by same angle as positions?
                 table = GameObject.Find("Table");
                 table.transform.Rotate(0f, -aem.theta, 0f);
+                //collect data
             }
             adjustmentsMade = true;
         }
@@ -550,7 +587,7 @@ namespace EyeTracking_lEC
         }
         public override void Act(GameObject manager)
         {
-            //do nothing
+            //collect data
         }
     }
     public class ViewerBDropDownState : FSMState

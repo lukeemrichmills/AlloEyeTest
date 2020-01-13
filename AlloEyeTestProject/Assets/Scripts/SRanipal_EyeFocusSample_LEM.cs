@@ -56,7 +56,7 @@ namespace EyeTracking_lEC
         private readonly GazeIndex[] GazePriority = new GazeIndex[] { GazeIndex.COMBINE, GazeIndex.LEFT, GazeIndex.RIGHT };
         private static EyeData eyeData = new EyeData();
         private bool eye_callback_registered = false;
-        List<GazeData> gazeDataCollection = new List<GazeData>();
+        public List<GazeData> gazeDataCollection = new List<GazeData>();
        
         GameObject previousFocus = null; //this will save the object that was previously focused on (including object ID)
         //int focusOn = 1;
@@ -131,11 +131,14 @@ namespace EyeTracking_lEC
         }
 
         //function to record eye focus data to list
-        private void RegisterGaze(float time, string objectID, Vector3 objPosition, Vector3 objScale, Vector3 colPoint)
+        public void RegisterGaze(float time, string objectID, Vector3 objPosition, Vector3 objScale, Vector3 colPoint)
         {
-            gazeDataCollection.Add(new GazeData( time, objectID, objPosition.x, objPosition.y, objPosition.z,
+            GazeData gd = new GazeData(time, objectID, objPosition.x, objPosition.y, objPosition.z,
                                    objScale.x, objScale.y, objScale.z,
-                                   colPoint.x, colPoint.y, colPoint.z));            
+                                   colPoint.x, colPoint.y, colPoint.z);
+            
+            gazeDataCollection.Add(gd);            
+            
         }
 
              //function to save data collection list to CSV file
