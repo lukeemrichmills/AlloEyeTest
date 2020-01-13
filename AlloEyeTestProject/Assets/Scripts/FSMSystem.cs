@@ -62,11 +62,12 @@ public enum Transition
     ViewerBLifted = 8,
     PositionBViewingComplete = 9,
     ViewerBDropped = 9,
-    Question1Answered = 10, 
+    Question1AnsweredYes = 10, 
     Question2Answered = 11,
     Instructions2APressed = 12,
     ViewerADropped2 = 13,
     TrialSwitched = 14,
+    Question1AnsweredNo = 15,
 }
 
 /// <summary>
