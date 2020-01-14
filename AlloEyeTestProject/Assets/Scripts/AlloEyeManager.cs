@@ -58,6 +58,7 @@ namespace EyeTracking_lEC
         public float theta;
 
         public string dataFile;
+        public string suppFile; //supplementary file for object locations and other info.
 
         public SRanipal_EyeFocusSample_LEM sranipal;
 
@@ -67,13 +68,19 @@ namespace EyeTracking_lEC
             GameObject efa = GameObject.Find("EyeFocusArray");
             sranipal = efa.GetComponent<SRanipal_EyeFocusSample_LEM>();
 
-            //create CSV file and headers
+            //create CSV files and headers
             dataFile = Application.dataPath + "/CSV/" + "Gaze_Data" + ppt + ".csv";
             StreamWriter writer = new StreamWriter(dataFile);
             writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
                                 "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2, MoveCode ");
             writer.Flush();
-            Debug.Log("CSV file created");
+
+            suppFile = Application.dataPath + "/CSV/" + "Supp_File" + ppt + ".csv";
+            StreamWriter writer2 = new StreamWriter(suppFile);
+            writer2.WriteLine("Trial, ViewNo, ViewPos, object1ID, 1X, 1Z, object2ID, 2X, 2Z,object3ID,  3X, 3Z," +
+                "object4ID, 4X, 4Z, object5ID, 5X, 5Z, Rot?, ObjShift?, ObjShifted");
+            writer2.Flush();
+            Debug.Log("CSV files created");
 
             //get table
             table = GameObject.Find("Table");
@@ -408,6 +415,20 @@ namespace EyeTracking_lEC
                     File.AppendAllText(aem.dataFile, newLines + Environment.NewLine); // NEED TO WORK THIS OUT! 
                 }
                 aem.sranipal.gazeDataCollection.Clear();
+
+                //suppfile
+
+                //Headings:("Trial, ViewNo, ViewPos, object1ID, 1X, 1Z, object2ID, 2X, 2Z,object3ID,  3X, 3Z," +
+                //"object4ID, 4X, 4Z, object5ID, 5X, 5Z, Rot?, ObjShift?, ObjShifted");
+
+                string newSuppLines = (aem.trialCounter + "," + viewNo + "," + "A" + "," +
+                                   aem.arrayObject1.name + "," + aem.arrayObject1.transform.position.x + "," + aem.arrayObject1.transform.position.z + "," +
+                                   aem.arrayObject2.name + "," + aem.arrayObject2.transform.position.x + "," + aem.arrayObject2.transform.position.z + "," +
+                                   aem.arrayObject3.name + "," + aem.arrayObject3.transform.position.x + "," + aem.arrayObject3.transform.position.z + "," +
+                                   aem.arrayObject4.name + "," + aem.arrayObject4.transform.position.x + "," + aem.arrayObject4.transform.position.z + "," +
+                                   aem.arrayObject5.name + "," + aem.arrayObject5.transform.position.x + "," + aem.arrayObject5.transform.position.z + "," +
+                                   aem.tableRotation + "," + aem.objectShift + "," + objectShifted);
+                    File.AppendAllText(aem.suppFile, newSuppLines + Environment.NewLine);
             }
         }
         public override void Act(GameObject manager)
@@ -629,6 +650,16 @@ namespace EyeTracking_lEC
                     File.AppendAllText(aem.dataFile, newLines + Environment.NewLine); 
                 }
                 aem.sranipal.gazeDataCollection.Clear();
+
+                //suppfile
+                string newSuppLines = (aem.trialCounter + "," + 2 + "," + "B" + "," +
+                                   aem.arrayObject1.name + "," + aem.arrayObject1.transform.position.x + "," + aem.arrayObject1.transform.position.z + "," +
+                                   aem.arrayObject2.name + "," + aem.arrayObject2.transform.position.x + "," + aem.arrayObject2.transform.position.z + "," +
+                                   aem.arrayObject3.name + "," + aem.arrayObject3.transform.position.x + "," + aem.arrayObject3.transform.position.z + "," +
+                                   aem.arrayObject4.name + "," + aem.arrayObject4.transform.position.x + "," + aem.arrayObject4.transform.position.z + "," +
+                                   aem.arrayObject5.name + "," + aem.arrayObject5.transform.position.x + "," + aem.arrayObject5.transform.position.z + "," +
+                                   aem.tableRotation + "," + aem.objectShift + "," + objectShifted);
+                File.AppendAllText(aem.suppFile, newSuppLines + Environment.NewLine);
             }
         }
         public override void Act(GameObject manager)
