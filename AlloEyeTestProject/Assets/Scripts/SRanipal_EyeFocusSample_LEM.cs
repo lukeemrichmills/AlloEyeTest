@@ -10,12 +10,11 @@ using ViveSR.anipal.Eye;
 namespace EyeTracking_lEC
 {
     ///new type for list; types of data for data collection through eye tracking: 
-    ///name of object being focused on or off, time stamp, and direction of focus (i.e. on or off)
+    ///name of object being focused on or off, time stamp, position of object, and collision point (i.e. gaze point location)
     public class GazeData 
     {
         public string objectID;
         public float time;
-        //public int direction;
         public float objPosX;
         public float objPosY;
         public float objPosZ;
@@ -44,8 +43,6 @@ namespace EyeTracking_lEC
             colZ = cZ;
         }
     }
-
-    
 
     ///main class used to detect eye focus on objects through raycasting. 
     ///This class adapted from SRanipal EyeFocusSample script
@@ -109,13 +106,6 @@ namespace EyeTracking_lEC
                 }
             }
         }
-        //called when user stops playmode
-        private void OnApplicationQuit()
-        {
-            SaveToCSV(gazeDataCollection);
-            //saves list of eye tracking data to csv file
-        }
-
         private void Release()
         {
             if (eye_callback_registered == true)
@@ -124,12 +114,10 @@ namespace EyeTracking_lEC
                 eye_callback_registered = false;
             }
         }
-
         private static void EyeCallback(ref EyeData eye_data)
         {
             eyeData = eye_data;
         }
-
         //function to record eye focus data to list
         public void RegisterGaze(float time, string objectID, Vector3 objPosition, Vector3 objScale, Vector3 colPoint)
         {
@@ -137,28 +125,7 @@ namespace EyeTracking_lEC
                                    objScale.x, objScale.y, objScale.z,
                                    colPoint.x, colPoint.y, colPoint.z);
             
-            gazeDataCollection.Add(gd);            
-            
-        }
-
-             //function to save data collection list to CSV file
-        void SaveToCSV(List<GazeData> dataList)
-        {
-            string filePath = Application.dataPath + "/CSV/" + "Gaze_Data.csv";
-            //string filePathFixPoint = Application.dataPath + "/CSV/" + "Fixation_Point.csv";
-
-            StreamWriter writer = new StreamWriter(filePath);
-            writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ");
-            for (int i = 0; i < dataList.Count; i++)
-            {
-                writer.WriteLine(dataList[i].time + "," + dataList[i].objectID + "," 
-                    + dataList[i].objPosX + "," + dataList[i].objPosY + "," + dataList[i].objPosZ + ","
-                    + dataList[i].objScaleX + "," + dataList[i].objScaleY + "," + dataList[i].objScaleZ + ","
-                    + dataList[i].colX + "," + dataList[i].colY + "," + dataList[i].colZ);
-            }
-            writer.Flush();
-            
-            Debug.Log("CSV file written");
+            gazeDataCollection.Add(gd);                 
         }
     }
 }

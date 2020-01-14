@@ -22,8 +22,8 @@ namespace EyeTracking_lEC
         public readonly Vector3 objectDumpPosition = new Vector3(-10f, -10f, -10f);
         public readonly Vector3 viewerAUpPosition = new Vector3(-0.067f, 2.3f, 0.488f);
         public readonly Vector3 viewerADownPosition = new Vector3(-0.067f, 1f, 0.488f);
-        public readonly Vector3 viewerBUpPosition = new Vector3(0.448f, 2.3f, 0.469f);
-        public readonly Vector3 viewerBDownPosition = new Vector3(0.448f, 1f, 0.469f);
+        public readonly Vector3 viewerBUpPosition = new Vector3(0.475f, 2.3f, 0.488f);
+        public readonly Vector3 viewerBDownPosition = new Vector3(0.475f, 1f, 0.488f);
 
         //define times for waiting
         public readonly float viewingTimeSeconds = 5f;
@@ -39,7 +39,7 @@ namespace EyeTracking_lEC
         public int moveCode = 1; //1 = move (walk); 2 = move (teleport); 3 = don't move (stick). Change to enum?
         public bool tableRotation = false; //false = no table rotation; true = table rotates.
         public bool objectShift = true; //true = an object moves; false = no objects move. 
-        //public enum MoveCode { Walk, Teleport, Stick};   
+        public string objectShifted; //string to record which object shifted
 
         //define objects in array including table
         public GameObject arrayObject1;
@@ -71,7 +71,7 @@ namespace EyeTracking_lEC
             dataFile = Application.dataPath + "/CSV/" + "Gaze_Data" + ppt + ".csv";
             StreamWriter writer = new StreamWriter(dataFile);
             writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
-                                "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2 ");
+                                "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2, MoveCode ");
             writer.Flush();
             Debug.Log("CSV file created");
 
@@ -141,8 +141,8 @@ namespace EyeTracking_lEC
             ViewerBDropDownState dropB = new ViewerBDropDownState();
             dropB.AddTransition(Transition.ViewerBDropped, StateID.Question1Showing);
             Question1Showing q1 = new Question1Showing();
-            q1.AddTransition(Transition.Question1AnsweredYes, StateID.Question2Showing);
-            q1.AddTransition(Transition.Question1AnsweredNo, StateID.TrialEndSwitch);
+            q1.AddTransition(Transition.Question1AnsweredYes, StateID.Question2Showing); //go to q2
+            q1.AddTransition(Transition.Question1AnsweredNo, StateID.TrialEndSwitch); //go straight to end
             Question2Showing q2 = new Question2Showing();
             q2.AddTransition(Transition.Question2Answered, StateID.TrialEndSwitch);
             TrialEndSwitch tes = new TrialEndSwitch();
@@ -219,7 +219,7 @@ namespace EyeTracking_lEC
                 placedObjects.Add(objectToPlace); //add to list of objects on table
             }
         }
-        public void RandomObjectShift(List<GameObject> objectList, GameObject table)
+        public void RandomObjectShift(List<GameObject> objectList, GameObject table, out string objectID)
         {
             int randIndex = UnityEngine.Random.Range(0, objectList.Count); //select a random object to shift
             GameObject objectToShift = objectList[randIndex]; //save to another object
@@ -232,9 +232,6 @@ namespace EyeTracking_lEC
             while (farEnoughCount < objectsNotMoving.Count)
             {
                 farEnoughCount = 0;
-                //Vector2 randVector = (UnityEngine.Random.insideUnitCircle * 0.25f); //generate random 2D vector within 0.25 radius
-                //Vector3 shiftVector = objectToShift.transform.position + new Vector3(randVector.x, 0f, randVector.y); //convert to 3D relative to object to move
-
                 GenerateRandomPositionOnTable(table, out randPos);
 
                 float d = Vector3.Distance(objectToShift.transform.position, randPos); //record this
@@ -250,6 +247,7 @@ namespace EyeTracking_lEC
                 }
             }
             objectToShift.transform.position = randPos;
+            objectID = objectToShift.name;
         }
         public void GenerateRandomPositionOnTable(GameObject table, out Vector3 randPos)
         {
@@ -291,7 +289,9 @@ namespace EyeTracking_lEC
     {
         public GameObject calibrationCanvas;
         public GameObject firstInstructionsCanvas;
+        public GameObject firstInstructionsCanvasRotate;
         public GameObject startButton;
+        public GameObject startButtonRotate;
 
         public FirstInstructionsState()
         {
@@ -301,24 +301,38 @@ namespace EyeTracking_lEC
         {
             AlloEyeManager aem = manager.GetComponent<AlloEyeManager>();
             startButton = GameObject.Find("StartButton");
-            if(startButton.GetComponent<RegisterPress>().pressBool == true)
+            startButtonRotate = GameObject.Find("StartButtonRotate");
+            if (startButton.GetComponent<RegisterPress>().pressBool == true | 
+                startButtonRotate.GetComponent<RegisterPress>().pressBool == true)
             {
                 aem.SetTransition(Transition.Instructions1OKPressed);
-                startButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
+                startButton.GetComponent<RegisterPress>().pressBool = false;//reset button for next trial
+                startButtonRotate.GetComponent<RegisterPress>().pressBool = false;//reset button for next trial
+                firstInstructionsCanvas.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
+                firstInstructionsCanvasRotate.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
             }       
         }
         public override void Act(GameObject manager)
         {
             AlloEyeManager aem = manager.GetComponent<AlloEyeManager>();
             calibrationCanvas = GameObject.Find("CalibrationCanvas");
-            firstInstructionsCanvas = GameObject.Find("FirstInstructionsCanvas");
-            firstInstructionsCanvas.GetComponent<RectTransform>().localPosition = aem.positionACanvasPosition; 
             calibrationCanvas.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
+
+            if (aem.tableRotation == false) //normal instructions
+            {
+                firstInstructionsCanvas = GameObject.Find("FirstInstructionsCanvas");
+                firstInstructionsCanvas.GetComponent<RectTransform>().localPosition = aem.positionACanvasPosition;
+            }
+            else //inform of rotation beforehand
+            {
+                firstInstructionsCanvasRotate = GameObject.Find("FirstInstructionsCanvasRotate");
+                firstInstructionsCanvasRotate.GetComponent<RectTransform>().localPosition = aem.positionACanvasPosition;
+            }
         }
     }
     public class ViewerALiftUpState : FSMState
     {
-        public GameObject firstInstructionsCanvas;
+        
         public GameObject screenA;
 
         public ViewerALiftUpState()
@@ -337,9 +351,6 @@ namespace EyeTracking_lEC
         public override void Act(GameObject manager)
         {
             AlloEyeManager aem = manager.GetComponent<AlloEyeManager>();
-            firstInstructionsCanvas = GameObject.Find("FirstInstructionsCanvas");
-            firstInstructionsCanvas.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
-
             screenA = GameObject.Find("ScreenA");
             Vector3 upPosition = aem.viewerAUpPosition;
             screenA.GetComponent<UpDown>().Lifting(upPosition);
@@ -349,6 +360,9 @@ namespace EyeTracking_lEC
     {
         bool vD;
         bool vD2 = false;
+        public int viewNo;
+        public string objectShifted;
+
         public FirstViewing()
         {
             stateID = StateID.PositionAViewing;
@@ -367,33 +381,39 @@ namespace EyeTracking_lEC
                 aem.SetTransition(Transition.PositionAViewingComplete);
                 aem.viewingDone = false;
                 vD2 = false;
-                
+
+                //collect data
+                List<GazeData> dataList = aem.sranipal.gazeDataCollection;
+                if (aem.firstViewOnce == false)
+                {
+                    viewNo = 1;
+                    objectShifted = null;
+                }
+                else
+                {
+                    viewNo = 2;
+                    objectShifted = aem.objectShifted;
+                }
+                    
+                //Headings: ("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
+                //                    "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2 ");
+                for (int i = 0; i < dataList.Count; i++)
+                {
+                    string newLines = (dataList[i].time+ "," + dataList[i].objectID + ","
+                       + dataList[i].objPosX + "," + dataList[i].objPosY + "," + dataList[i].objPosZ + ","
+                       + dataList[i].objScaleX + "," + dataList[i].objScaleY + "," + dataList[i].objScaleZ + ","
+                       + dataList[i].colX + "," + dataList[i].colY + "," + dataList[i].colZ + ","
+                       + aem.trialCounter + "," + viewNo + "," + "A" + "," + aem.tableRotation + "," +
+                       aem.objectShift + "," + objectShifted + "," + "" + "," + "" + "," + aem.moveCode);
+                    File.AppendAllText(aem.dataFile, newLines + Environment.NewLine); // NEED TO WORK THIS OUT! 
+                }
+                aem.sranipal.gazeDataCollection.Clear();
             }
         }
         public override void Act(GameObject manager)
         {
             AlloEyeManager aem = manager.GetComponent<AlloEyeManager>();
-            //collect data
-            //get SRanipal_EyeFocusSample_LEM
-            List<GazeData> dataList = aem.sranipal.gazeDataCollection;
-            //get output of RegisterGaze
-
-            //add to CSV alongside other data
-            //StreamWriter writer = new StreamWriter(aem.dataFile);
-            //writer.WriteLine("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
-            //                    "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2 ");
-            for (int i = 0; i < dataList.Count; i++)
-            {
-                string newLine = (dataList[i].time.ToString() + "," + dataList[i].objectID.ToString() + ","
-                   + dataList[i].objPosX.ToString() + "," + dataList[i].objPosY.ToString() + "," + dataList[i].objPosZ.ToString() + ","
-                   + dataList[i].objScaleX.ToString() + "," + dataList[i].objScaleY.ToString() + "," + dataList[i].objScaleZ.ToString() + ","
-                   + dataList[i].colX.ToString() + "," + dataList[i].colY.ToString() + "," + dataList[i].colZ.ToString() + "," 
-                   + aem.trialCounter.ToString() + "," + 1 + "," + "A" + "," + aem.tableRotation.ToString() + "," + 
-                   aem.objectShift.ToString() + "," + objectThatShift + blank + blank);
-                File.AppendAllText(aem.dataFile, newLine); // NEED TO WORK THIS OUT! 
-            }
-           
-            //writer.Flush();
+            
         }
     }
     public class ViewerADropDownState : FSMState
@@ -456,16 +476,14 @@ namespace EyeTracking_lEC
             if (aem.objectShift == true)
             {
                 table = GameObject.Find("Table");
-                aem.RandomObjectShift(aem.arrayObjectsPostPlace, table);
-                //collect data - could either put in RandomObjectShift or output data from the function and collect data here (or in separate function)
+                aem.RandomObjectShift(aem.arrayObjectsPostPlace, table, out aem.objectShifted);
             }
             //whether table rotates or not
             if (aem.tableRotation == true)
             {
                 //rotate table
                 table = GameObject.Find("Table");
-                table.transform.Rotate(0f, -aem.theta, 0f);
-                //collect data
+                table.transform.Rotate(0f, -aem.theta, 0f); //rotate by same angle as angle between teleport markers
             }
             adjustmentsMade = true;
         }
@@ -565,6 +583,8 @@ namespace EyeTracking_lEC
     {
         bool vD;
         bool vD2 = false;
+        public string objectShifted;
+
         public SecondViewing()
         {
             stateID = StateID.PositionBViewing;
@@ -583,11 +603,37 @@ namespace EyeTracking_lEC
                 aem.SetTransition(Transition.PositionBViewingComplete);
                 aem.viewingDone = false;
                 vD2 = false;
+
+                //collect data
+                List<GazeData> dataList = aem.sranipal.gazeDataCollection;
+                if (aem.objectShift == true)
+                {
+                    string temp = aem.objectShifted;
+                    objectShifted = temp;
+                }
+                else
+                {
+                    objectShifted = null;
+                }
+                    
+                //Headings: ("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
+                //                    "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2 ");
+                for (int i = 0; i < dataList.Count; i++)
+                {
+                    string newLines = (dataList[i].time + "," + dataList[i].objectID + ","
+                       + dataList[i].objPosX + "," + dataList[i].objPosY + "," + dataList[i].objPosZ + ","
+                       + dataList[i].objScaleX + "," + dataList[i].objScaleY + "," + dataList[i].objScaleZ + ","
+                       + dataList[i].colX + "," + dataList[i].colY + "," + dataList[i].colZ + ","
+                       + aem.trialCounter + "," + 2 + "," + "B" + "," + aem.tableRotation + "," +
+                       aem.objectShift + "," + objectShifted + "," + "" + "," + "" + "," + aem.moveCode);
+                    File.AppendAllText(aem.dataFile, newLines + Environment.NewLine); 
+                }
+                aem.sranipal.gazeDataCollection.Clear();
             }
         }
         public override void Act(GameObject manager)
         {
-            //collect data
+            //do nothing
         }
     }
     public class ViewerBDropDownState : FSMState
@@ -635,6 +681,7 @@ namespace EyeTracking_lEC
         public GameObject nButton;
         public GameObject walkBackCanvas;
         public GameObject teleportBackCanvas;
+        public string objectShifted;
 
         public Question1Showing()
         {
@@ -651,8 +698,6 @@ namespace EyeTracking_lEC
                 q1Canvas = GameObject.Find("Question1");
                 q1Canvas.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
                 yButton.GetComponent<RegisterPress>().pressBool = false; //reset button for next trial
-
-                //record button press here
             }
             else if (nButton.GetComponent<RegisterPress>().pressBool == true)
             {
@@ -664,6 +709,28 @@ namespace EyeTracking_lEC
                 walkBackCanvas.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
                 teleportBackCanvas = GameObject.Find("TeleportBackInstructionsCanvas");
                 teleportBackCanvas.GetComponent<RectTransform>().localPosition = aem.objectDumpPosition;
+
+                //record button press here
+
+                //Headings: ("Time, Object, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, ColX, ColY, ColZ, " +
+                //                    "Trial, ViewNo, ViewPos, Rot?, ObjShift?, ObjShifted, Q1, Q2, movecode ");
+                if (aem.objectShift == true)
+                {
+                    string temp = aem.objectShifted;
+                    objectShifted = temp;
+                }
+                else
+                {
+                    objectShifted = null;
+                }
+
+                string newLine = ("" + "," + "" + ","
+                   + "" + "," + "" + "," + "" + ","
+                   + "" + "," + "" + "," + "" + ","
+                   + "" + "," + "" + "," + "" + ","
+                   + aem.trialCounter + "," + "" + "," + "" + "," + aem.tableRotation + "," +
+                   aem.objectShift + "," + objectShifted + "," + "N" + "," + "" + "," + aem.moveCode);
+                File.AppendAllText(aem.dataFile, newLine + Environment.NewLine);
             }
         }
         public override void Act(GameObject manager)
@@ -684,6 +751,7 @@ namespace EyeTracking_lEC
         public GameObject button4;
         public GameObject button5;
         public List<GameObject> buttons = new List<GameObject>();
+        public string objectShifted;
 
         public Question2Showing()
         {
@@ -693,23 +761,24 @@ namespace EyeTracking_lEC
         {
             button1 = GameObject.Find("IceCreamButton");
             bool b1Press = button1.GetComponent<RegisterPress>().pressBool;
-            buttons.Add(button1);
             button2 = GameObject.Find("CakeButton");
             bool b2Press = button2.GetComponent<RegisterPress>().pressBool;
-            buttons.Add(button1);
             button3 = GameObject.Find("HamburgerButton");
             bool b3Press = button3.GetComponent<RegisterPress>().pressBool;
-            buttons.Add(button1);
             button4 = GameObject.Find("DonutButton");
             bool b4Press = button4.GetComponent<RegisterPress>().pressBool;
-            buttons.Add(button1);
             button5 = GameObject.Find("MilkButton");
             bool b5Press = button5.GetComponent<RegisterPress>().pressBool;
-            buttons.Add(button1);
-           
+            
             if (b1Press == true | b2Press == true | b3Press == true | b4Press == true | b5Press == true)
             {
                 AlloEyeManager aem = manager.GetComponent<AlloEyeManager>();
+
+                buttons.Add(button1);
+                buttons.Add(button2);
+                buttons.Add(button3);
+                buttons.Add(button4);
+                buttons.Add(button5);
 
                 //transition
                 aem.SetTransition(Transition.Question2Answered);
@@ -729,10 +798,25 @@ namespace EyeTracking_lEC
                     if (b.GetComponent<RegisterPress>().pressBool == true)
                     {
                         //record here
-                        //trial variables
-                        //button press
+                        if (aem.objectShift == true)
+                        {
+                            string temp = aem.objectShifted;
+                            objectShifted = temp;
+                        }
+                        else
+                        {
+                            objectShifted = null;
+                        }
+                        string newLine = ("" + "," + "" + ","
+                                            + "" + "," + "" + "," + "" + ","
+                                            + "" + "," + "" + "," + "" + ","
+                                            + "" + "," + "" + "," + "" + ","
+                                            + aem.trialCounter + "," + "" + "," + "" + "," + aem.tableRotation + "," +
+                                            aem.objectShift + "," + objectShifted + "," + "Y" + "," + b.name + "," + aem.moveCode);
+                        File.AppendAllText(aem.dataFile, newLine + Environment.NewLine);
                     }
                 }
+                buttons.Clear();
 
                 //reset buttons for next trial - foreach loop doesn't work for some reason, neither does b1Press etc.
                 button1.GetComponent<RegisterPress>().pressBool = false;

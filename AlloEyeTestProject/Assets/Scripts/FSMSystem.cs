@@ -228,11 +228,12 @@ public class FSMSystem
     /// </summary>
     public void AddState(FSMState s)
     {
-        // Check for Null reference before deleting
-        if (s == null)
-        {
-            Debug.LogError("FSM ERROR: Null reference is not allowed");
-        }
+        //DISABLED THIS ERROR - LEM
+        //// Check for Null reference before deleting
+        //if (s == null)
+        //{
+        //    Debug.LogError("FSM ERROR: Null reference is not allowed");
+        //}
 
         // First State inserted is also the Initial state,
         //   the state the machine is in when the simulation begins
